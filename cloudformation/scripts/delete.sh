@@ -1,1 +1,1 @@
-aws cloudformation delete-stack --stack-name projecttwo
+aws cloudformation delete-stack --stack-name Udagram
