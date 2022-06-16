@@ -1,1 +1,1 @@
-aws cloudformation create-stack --stack-name projecttwo --template-body file://project_two.yml  --parameters file://project_two.json --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM" --region=us-east-1
+aws cloudformation create-stack --stack-name projecttwo --template-body file://../project_two.yml  --parameters file://../project_two.json --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM" --region=us-east-1
