@@ -1,4 +1,7 @@
 Parameters:
+  EnvironmentName:
+    Description: The of the environment for this stack
+    Type: String
   VpcCIDR:
     Description: Please enter the IP range (CIDR notation) for this VPC
     Type: String
@@ -97,52 +100,6 @@ Resources:
       SubnetId: !Ref PublicSubnetTwo
       RouteTableId: !Ref PublicRouteTable
 
-  LoadBalancerSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow http to our load balancer
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-  ApplicationLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Subnets:
-        - !Ref PublicSubnetOne
-        - !Ref PublicSubnetTwo
-      SecurityGroups:
-        - Ref: LoadBalancerSecurityGroup
-  Listener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn:
-            Ref: WebAppTargetGroup
-      LoadBalancerArn:
-        Ref: ApplicationLoadBalancer
-      Port: 80
-      Protocol: HTTP
-  ListenerRule:
-    Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Properties:
-      Actions:
-        - Type: forward
-          TargetGroupArn: !Ref WebAppTargetGroup
-      Conditions:
-        - Field: path-pattern
-          Values: [/]
-      ListenerArn: !Ref Listener
-      Priority: 1
-
   # Private Subnets with EC2 Autoscaling group
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
@@ -183,68 +140,19 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway
 
-  ## Security Group, Launch Config, Auto Scaling
-  WebAppSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow http to our hosts and SSH from local only
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: 0
-          ToPort: 65535
-          CidrIp: 0.0.0.0/0
-  WebAppLaunchConfig:
-    Type: AWS::AutoScaling::LaunchConfiguration
-    Properties:
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          apt-get update -y
-          apt-get install ec2-instance-connect
-          apt-get install apache2 -y
-          cd /var/www/html
-          echo "Udacity Demo Web Server Up and Running!" > index.html
-          sudo systemctl start apache2
-      ImageId: ami-0df32f8302dfe67df
-      InstanceType: t2.medium
-      SecurityGroups:
-        - Ref: WebAppSecurityGroup
-      BlockDeviceMappings:
-        - DeviceName: '/dev/sdk'
-          Ebs:
-            VolumeSize: '10'
-  WebAppAutoScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      VPCZoneIdentifier:
-        - !Join [',', [!Ref PrivateSubnetOne, !Ref PrivateSubnetTwo]]
-      LaunchConfigurationName:
-        Ref: WebAppLaunchConfig
-      MinSize: '4'
-      MaxSize: '4'
-      TargetGroupARNs:
-        - Ref: WebAppTargetGroup
-      HealthCheckGracePeriod: 60
-  WebAppTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      HealthCheckIntervalSeconds: 10
-      HealthCheckPath: /
-      HealthCheckProtocol: HTTP
-      HealthCheckTimeoutSeconds: 8
-      HealthyThresholdCount: 2
-      Port: 80
-      Protocol: HTTP
-      UnhealthyThresholdCount: 5
-      VpcId: !Ref VPC
-
 Outputs:
-  LoadBalancerURL:
-    Description: Load Balancer URL
-    Value: !Join ['://', ['http', !GetAtt ApplicationLoadBalancer.DNSName]]
+  VPC:
+    Description: VPC created by the network stack
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${EnvironmentName}-VPCID
+  PublicSubnets:
+    Description: Public Subnets created by the network stack
+    Value: !Join [',', [!Ref PublicSubnetOne, !Ref PublicSubnetTwo]]
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB-NETS
+  PrivateSubnets:
+    Description: Private Subnets created by the network stack
+    Value: !Join [',', [!Ref PrivateSubnetOne, !Ref PrivateSubnetTwo]]
+    Export:
+      Name: !Sub ${EnvironmentName}-PRIV-NETS

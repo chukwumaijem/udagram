@@ -8,15 +8,15 @@ Parameters:
     Type: String
     Default: 10.0.0.0/24
   PublicSubnetTwoCIDR:
-    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
     Type: String
     Default: 10.0.1.0/24
   PrivateSubnetOneCIDR:
-    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
     Type: String
     Default: 10.0.2.0/24
   PrivateSubnetTwoCIDR:
-    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
     Type: String
     Default: 10.0.3.0/24
 
@@ -148,6 +148,12 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
   PrivateSubnetOne:
     Type: AWS::EC2::Subnet
     Properties:
@@ -176,12 +182,6 @@ Resources:
     Properties:
       SubnetId: !Ref PrivateSubnetTwo
       RouteTableId: !Ref PrivateRouteTable
-  PrivateRoute:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway
 
   ## Security Group, Launch Config, Auto Scaling
   WebAppSecurityGroup:
@@ -207,9 +207,10 @@ Resources:
           #!/bin/bash
           apt-get update -y
           apt-get install apache2 -y
-          cd /var/www/html
-          echo "<html><body><h1>It works! Udagram, Udacity</h1></body></html>" > index.html
           sudo systemctl start apache2
+          cd /var/www/html
+          echo "It works! Udagram, Udacity" > index.html
+          sudo systemctl restart apache2
       ImageId: ami-0df32f8302dfe67df
       InstanceType: t3.medium
       SecurityGroups:
@@ -217,7 +218,7 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: '/dev/sdk'
           Ebs:
-            VolumeSize: '10'
+            VolumeSize: '15'
   WebAppAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
