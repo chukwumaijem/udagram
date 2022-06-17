@@ -110,6 +110,6 @@ Resources:
         Fn::ImportValue: !Sub '${EnvironmentName}-PUB-NETS'
 
 Outputs:
-  LoadBalancerURL:
+  LBURL:
     Description: Load Balancer URL
     Value: !Join ['://', ['http', !GetAtt ApplicationLoadBalancer.DNSName]]
