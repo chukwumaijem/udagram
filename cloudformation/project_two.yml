@@ -7,14 +7,18 @@ Parameters:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
     Default: 10.0.0.0/24
+  PublicSubnetTwoCIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.0.1.0/24
   PrivateSubnetOneCIDR:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
     Type: String
-    Default: 10.0.1.0/24
+    Default: 10.0.2.0/24
   PrivateSubnetTwoCIDR:
     Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
     Type: String
-    Default: 10.0.2.0/24
+    Default: 10.0.3.0/24
 
 Resources:
   # instace profile contains the IAM Role name(s) that we want to associate to our auto scaling EC2 Servers
@@ -26,7 +30,7 @@ Resources:
   #     Roles:
   #       - UdacityS3ReadOnlyEC2
 
-  # Create VPC, Gateways, Routes and Subnets
+  # Create VPC, Gateways
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -48,6 +52,8 @@ Resources:
     Properties:
       InternetGatewayId: !Ref InternetGateway
       VpcId: !Ref VPC
+
+  # Public Subnet with Load Balancer
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -59,7 +65,7 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
-  PublicSubnet:
+  PublicSubnetOne:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
@@ -68,34 +74,125 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName} Public Subnet
-  PublicSubnetRouteTableAssociation:
+          Value: !Sub ${AWS::StackName} Public Subnet One
+  PublicSubnetTwo:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Ref PublicSubnetTwoCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName} Public Subnet Two
+  PublicSubnetOneRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnetOne
       RouteTableId: !Ref PublicRouteTable
+  PublicSubnetTwoRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetTwo
+      RouteTableId: !Ref PublicRouteTable
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our load balancer
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - !Ref PublicSubnetOne
+        - !Ref PublicSubnetTwo
+      SecurityGroups:
+        - Ref: LoadBalancerSecurityGroup
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: WebAppTargetGroup
+      LoadBalancerArn:
+        Ref: ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref WebAppTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: [/]
+      ListenerArn: !Ref Listener
+      Priority: 1
+
+  # Private Subnets with EC2 Autoscaling group
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
   PrivateSubnetOne:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [0, !GetAZs '']
       CidrBlock: !Ref PrivateSubnetOneCIDR
-      MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName} Private Subnet
+          Value: !Sub ${AWS::StackName} Private Subnet One
   PrivateSubnetTwo:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [1, !GetAZs '']
       CidrBlock: !Ref PrivateSubnetTwoCIDR
-      MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName} Private Subnet
+          Value: !Sub ${AWS::StackName} Private Subnet Two
+  PrivateSubnetOneRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetOne
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnetTwoRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetTwo
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      Domain: vpc
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnetTwo
 
-  # Security Group, Launch Config, Auto Scaling
+  ## Security Group, Launch Config, Auto Scaling
   WebAppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -129,6 +226,7 @@ Resources:
           sudo systemctl start apache2
       ImageId: ami-0df32f8302dfe67df
       InstanceType: t2.medium
+      KeyName: udagram
       SecurityGroups:
         - Ref: WebAppSecurityGroup
       BlockDeviceMappings:
@@ -139,29 +237,28 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       VPCZoneIdentifier:
-        - !Join [',', [!Ref PublicSubnet]]
+        - !Join [',', [!Ref PrivateSubnetOne, !Ref PrivateSubnetTwo]]
       LaunchConfigurationName:
         Ref: WebAppLaunchConfig
-      MinSize: '1'
-      MaxSize: '1'
-      # TargetGroupARNs:
-      #   - Ref: WebAppTargetGroup
-# Outputs:
-# This is also optional.
-# Bonus points for useful outputs!
-# for example, if you create a Load Balancer
-# it's nice to output the URL to it here, so that we don't have to go to the console to get it.
+      MinSize: '4'
+      MaxSize: '4'
+      TargetGroupARNs:
+        - Ref: WebAppTargetGroup
+      HealthCheckGracePeriod: 60
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 8
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !Ref VPC
 
-# Sample UserData
-# When creating your Launch Configuration, you may need a UserData script
-# here's one that you can use for Ubuntu Linux that will:
-# Install Apache Web Server, Start it, and create an index.html that will be displayed
-# when you visit the IP address of this server with your web browser
-# Here it is:
-#
-#          #!/bin/bash
-#          apt-get update -y
-#          apt-get install apache2 -y
-#          systemctl start apache2.service
-#          cd /var/www/html
-#          echo "Udacity Demo Web Server Up and Running!" > index.html
+Outputs:
+  LoadBalancerURL:
+    Description: Load Balancer URL
+    Value: !Join ['://', ['http', !GetAtt ApplicationLoadBalancer.DNSName]]
