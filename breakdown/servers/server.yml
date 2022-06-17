@@ -112,7 +112,7 @@ Resources:
       Protocol: HTTP
       UnhealthyThresholdCount: 5
       VpcId:
-        Fn::ImportValue: !Sub '${EnvironmentName}-PUB-NETS'
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCID'
 
 Outputs:
   LBURL:
