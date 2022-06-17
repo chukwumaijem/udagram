@@ -28,3 +28,6 @@ In YAML code, the `${EnvironmentName}` would be substituted with `UdacityProject
 ### Future Notes
 
 - Unless ssl certificate is install, remember to use http. AWS opens https by default.
+
+
+Load Balancer URL: http://udagr-appli-1mv8g7qj5c7sv-1696102425.us-east-1.elb.amazonaws.com/

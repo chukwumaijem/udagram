@@ -25,7 +25,8 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Subnets:
-        Fn::ImportValue: !Sub '${EnvironmentName}-PUB-NETS'
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PUBNET1'
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PUBNET2'
       SecurityGroups:
         - Ref: LoadBalancerSecurityGroup
   Listener:
@@ -77,9 +78,10 @@ Resources:
           apt-get update -y
           apt-get install ec2-instance-connect
           apt-get install apache2 -y
+          sudo systemctl start apache2
           cd /var/www/html
           echo "Udacity Demo Web Server Up and Running!" > index.html
-          sudo systemctl start apache2
+          sudo systemctl restart apache2
       ImageId: ami-0df32f8302dfe67df
       InstanceType: t2.medium
       SecurityGroups:
@@ -92,14 +94,15 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       VPCZoneIdentifier:
-        Fn::ImportValue: !Sub '${EnvironmentName}-PRIV-NETS'
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PRIVNET1'
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PRIVNET2'
       LaunchConfigurationName:
         Ref: WebAppLaunchConfig
       MinSize: '4'
       MaxSize: '4'
       TargetGroupARNs:
         - Ref: WebAppTargetGroup
-      HealthCheckGracePeriod: 60
+      HealthCheckGracePeriod: 120
   WebAppTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:

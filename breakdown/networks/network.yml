@@ -146,13 +146,23 @@ Outputs:
     Value: !Ref VPC
     Export:
       Name: !Sub ${EnvironmentName}-VPCID
-  PublicSubnets:
-    Description: Public Subnets created by the network stack
-    Value: !Join [',', [!Ref PublicSubnetOne, !Ref PublicSubnetTwo]]
+  PublicSubnetOne:
+    Description: Public Subnet one created by the network stack
+    Value: !Ref PublicSubnetOne
     Export:
-      Name: !Sub ${EnvironmentName}-PUB-NETS
-  PrivateSubnets:
+      Name: !Sub ${EnvironmentName}-PUBNET1
+  PublicSubnetTwo:
+    Description: Public Subnet two created by the network stack
+    Value: !Ref PublicSubnetTwo
+    Export:
+      Name: !Sub ${EnvironmentName}-PUBNET2
+  PrivateSubnetOne:
     Description: Private Subnets created by the network stack
-    Value: !Join [',', [!Ref PrivateSubnetOne, !Ref PrivateSubnetTwo]]
+    Value: !Ref PrivateSubnetOne
     Export:
-      Name: !Sub ${EnvironmentName}-PRIV-NETS
+      Name: !Sub ${EnvironmentName}-PRIVNET1
+  PrivateSubnetTwo:
+    Description: Private Subnets created by the network stack
+    Value: !Ref PrivateSubnetTwo
+    Export:
+      Name: !Sub ${EnvironmentName}-PRIVNET2
