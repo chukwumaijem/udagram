@@ -213,7 +213,6 @@ Resources:
           sudo systemctl start apache2
       ImageId: ami-0df32f8302dfe67df
       InstanceType: t2.medium
-      KeyName: udagram
       SecurityGroups:
         - Ref: WebAppSecurityGroup
       BlockDeviceMappings:
