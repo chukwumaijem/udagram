@@ -1,3 +1,8 @@
+Parameters:
+  EnvironmentName:
+    Description: The of the environment for this stack
+    Type: String
+
 Resources:
   # Load balancer setup
   LoadBalancerSecurityGroup:
